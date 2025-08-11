@@ -1,0 +1,22 @@
+{
+  "conversation_id": "test-1",
+  "intent": "book_appointment",
+  "caller": {
+    "name": "Casey Li",
+    "phone": "+18015551234",
+    "email": "casey.li@email.com"
+  },
+  "symptoms": "knee pain after running",
+  "requested_start_iso": "2025-08-12T16:00:00-06:00",
+  "duration_min": 30,
+  "insurance": {
+    "payer": "Aetna",
+    "memberId": "AET12345",
+    "dob": "1985-03-15"
+  },
+  "context": {
+    "locale": "en-US",
+    "tz": "America/Denver"
+  },
+  "chosen_start_iso": null
+} 

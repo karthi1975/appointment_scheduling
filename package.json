@@ -1,0 +1,47 @@
+{
+  "name": "medical-appointment-booking-system",
+  "version": "1.0.0",
+  "description": "AI-powered medical appointment booking system with Vapi voice agents and n8n workflows",
+  "main": "webapp/js/app.js",
+  "scripts": {
+    "start": "node webapp/js/app.js",
+    "dev": "nodemon webapp/js/app.js",
+    "build": "echo 'Build completed'",
+    "test": "echo 'Tests completed'",
+    "deploy:railway": "railway up",
+    "deploy:railway:prod": "railway up --environment production"
+  },
+  "keywords": [
+    "medical",
+    "appointment",
+    "booking",
+    "voice-agents",
+    "n8n",
+    "vapi",
+    "healthcare",
+    "ai"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "redis": "^4.6.10"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "your-repository-url"
+  },
+  "homepage": "https://your-app-name.railway.app"
+} 

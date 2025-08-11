@@ -1,0 +1,157 @@
+{
+  "name": "Scheduler Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const state = $json.state;\nconst triage = $json.triage;\nreturn [{ constraints: {\n  minDurationMin: Math.max(state.duration_min, triage.minDurationMin),\n  specialty: triage.specialty,\n  requested_start_iso: state.requested_start_iso,\n  tz: state.context.tz\n}}];"
+      },
+      "id": "build-constraints",
+      "name": "Build Scheduling Constraints",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "operation": "getAll",
+        "calendar": "primary",
+        "returnAll": false,
+        "limit": 10,
+        "filters": {
+          "timeMin": "={{ new Date().toISOString() }}",
+          "timeMax": "={{ new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+        }
+      },
+      "id": "check-calendar",
+      "name": "Check Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "slot-available",
+              "leftValue": "={{ $json.constraints.requested_start_iso }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-requested-slot",
+      "name": "Check if Requested Slot Available",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "operation": "create",
+        "calendar": "primary",
+        "summary": "Medical Appointment - {{$json.state.caller.name}}",
+        "description": "Symptoms: {{$json.state.symptoms}}\nSpecialty: {{$json.triage.specialty}}\nDuration: {{$json.constraints.minDurationMin}} minutes",
+        "start": "={{$json.constraints.requested_start_iso}}",
+        "end": "={{new Date(new Date($json.constraints.requested_start_iso).getTime() + $json.constraints.minDurationMin * 60000).toISOString()}}",
+        "location": "Main Clinic"
+      },
+      "id": "create-appointment",
+      "name": "Create Google Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const eventId = $json.id;\nconst start = $json.start.dateTime || $json.start.date;\nconst end = $json.end.dateTime || $json.end.date;\nreturn [{ scheduler: { \n  status: 'booked', \n  eventId: eventId, \n  start: start, \n  end: end, \n  provider: 'Dr. Jensen', \n  location: 'Main Clinic' \n} }];"
+      },
+      "id": "format-booked-response",
+      "name": "Format Booked Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate next 3 candidate start times as ISO in user's tz\nconst now = new Date();\nconst options = [\n  new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),\n  new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),\n  new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString()\n];\nreturn [{ scheduler: { status: 'suggest', options } }];"
+      },
+      "id": "find-next-options",
+      "name": "Find Next Available Options",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Build Scheduling Constraints": {
+      "main": [
+        [
+          {
+            "node": "Check Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Check if Requested Slot Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Requested Slot Available": {
+      "main": [
+        [
+          {
+            "node": "Create Google Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Next Available Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Format Booked Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1"
+} 

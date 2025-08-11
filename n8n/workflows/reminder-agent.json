@@ -1,0 +1,111 @@
+{
+  "name": "Reminder Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "operation": "send",
+        "to": "={{ $json.state.caller.phone }}",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "message": "You're booked for {{ $json.scheduler.start }}. Prep: {{ $json.triage.prep }}. Location: {{ $json.scheduler.location }}"
+      },
+      "id": "send-sms",
+      "name": "Send SMS Reminder",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2Api",
+        "operation": "send",
+        "to": "={{ $json.state.caller.email || 'patient@example.com' }}",
+        "subject": "Appointment Confirmation - {{ $json.scheduler.start }}",
+        "message": "Dear {{ $json.state.caller.name }},\n\nYour appointment has been confirmed:\n\nDate: {{ $json.scheduler.start }}\nProvider: {{ $json.scheduler.provider }}\nLocation: {{ $json.scheduler.location }}\nDuration: {{ $json.state.duration_min }} minutes\n\nPreparation: {{ $json.triage.prep }}\n\nPlease arrive 10 minutes early.\n\nBest regards,\nMedical Clinic Team"
+      },
+      "id": "send-email",
+      "name": "Send Email Confirmation",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableApi",
+        "operation": "upsert",
+        "base": "={{ $env.AIRTABLE_BASE_ID }}",
+        "table": "appointments",
+        "columns": {
+          "conversation_id": "={{ $json.state.conversation_id }}",
+          "patient_name": "={{ $json.state.caller.name }}",
+          "patient_phone": "={{ $json.state.caller.phone }}",
+          "appointment_start": "={{ $json.scheduler.start }}",
+          "appointment_end": "={{ $json.scheduler.end }}",
+          "provider": "={{ $json.scheduler.provider }}",
+          "location": "={{ $json.scheduler.location }}",
+          "specialty": "={{ $json.triage.specialty }}",
+          "symptoms": "={{ $json.state.symptoms }}",
+          "copay_estimate": "={{ $json.insurance.copay_estimate || 0 }}",
+          "prep_instructions": "={{ $json.triage.prep }}",
+          "status": "confirmed"
+        }
+      },
+      "id": "log-to-airtable",
+      "name": "Log to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ reminder: { status: 'sent', sms: true, email: true, logged: true } }];"
+      },
+      "id": "format-reminder-response",
+      "name": "Format Reminder Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Send SMS Reminder": {
+      "main": [
+        [
+          {
+            "node": "Send Email Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Log to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Format Reminder Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1"
+} 

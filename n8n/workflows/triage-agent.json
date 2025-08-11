@@ -1,0 +1,56 @@
+{
+  "name": "Triage Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "operation": "chat",
+        "model": "gpt-4",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "You classify medical intake. Output JSON with:\nurgency: routine|urgent, visitType, specialty, minDurationMin, prep (short instruction).\n\nUser message (json): {{$json.state.symptoms}}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 200
+        }
+      },
+      "id": "openai-triage",
+      "name": "OpenAI Triage Classification",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const o = $json;\nconst out = {\n  urgency: (o.urgency||'routine').toLowerCase(),\n  visitType: o.visitType || 'new_patient_consult',\n  specialty: o.specialty || 'orthopedics',\n  minDurationMin: Number(o.minDurationMin||30),\n  prep: o.prep || 'Wear comfortable clothing'\n};\nreturn [{ triage: out }];"
+      },
+      "id": "normalize-triage",
+      "name": "Normalize Triage Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "OpenAI Triage Classification": {
+      "main": [
+        [
+          {
+            "node": "Normalize Triage Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1"
+} 

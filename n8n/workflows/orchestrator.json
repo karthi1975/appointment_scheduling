@@ -1,0 +1,338 @@
+{
+  "name": "Appointment Booking Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vapi-intake",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "vapi-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: $json\nconst tz = $json.context?.tz || 'America/Denver';\nconst state = {\n  conversation_id: $json.conversation_id,\n  caller: $json.caller,\n  intent: $json.intent,\n  symptoms: $json.symptoms || '',\n  requested_start_iso: $json.chosen_start_iso || $json.requested_start_iso || null,\n  duration_min: Number($json.duration_min || 30),\n  insurance: $json.insurance || {},\n  context: { tz }\n};\nreturn [{ state }];"
+      },
+      "id": "init-state",
+      "name": "Initialize State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "triage-agent",
+        "source": "id",
+        "options": {}
+      },
+      "id": "execute-triage",
+      "name": "Execute Triage Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "adjust-constraints",
+              "leftValue": "={{ $json.triage.urgency }}",
+              "rightValue": "urgent",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-urgency",
+      "name": "Check if Urgent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "scheduler-agent",
+        "source": "id",
+        "options": {}
+      },
+      "id": "execute-scheduler",
+      "name": "Execute Scheduler Agent",
+      "type": "version": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "scheduler-suggests",
+              "leftValue": "={{ $json.scheduler.status }}",
+              "rightValue": "suggest",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-scheduler-suggests",
+      "name": "Check if Scheduler Suggests",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'suggest', options: $json.scheduler.options } }}",
+        "options": {}
+      },
+      "id": "respond-suggestions",
+      "name": "Respond with Suggestions",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1560, 200]
+    },
+    {
+      "parameters": {
+        "workflowId": "insurance-agent",
+        "source": "id",
+        "options": {}
+      },
+      "id": "execute-insurance",
+      "name": "Execute Insurance Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-info",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "ask",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-needs-info",
+      "name": "Check if Needs Info",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { action: 'ask', question: $json.question } }}",
+        "options": {}
+      },
+      "id": "respond-question",
+      "name": "Respond with Question",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": "reminder-agent",
+        "source": "id",
+        "options": {}
+      },
+      "id": "execute-reminder",
+      "name": "Execute Reminder Agent",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [2000, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const st = $json.state;\nconst sch = $json.scheduler;\nconst ins = $json.insurance || {};\nreturn [{\n  json: {\n    status: 'confirmed',\n    provider: sch.provider || 'Dr. Jensen',\n    start: sch.start,\n    end: sch.end,\n    location: sch.location || 'Main Clinic',\n    copay_estimate: ins.copay_estimate ?? null\n  }\n}];"
+      },
+      "id": "compose-final-response",
+      "name": "Compose Final Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-confirmed",
+      "name": "Respond Confirmed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Initialize State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize State": {
+      "main": [
+        [
+          {
+            "node": "Execute Triage Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Triage Agent": {
+      "main": [
+        [
+          {
+            "node": "Check if Urgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Urgent": {
+      "main": [
+        [
+          {
+            "node": "Execute Scheduler Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Scheduler Agent": {
+      "main": [
+        [
+          {
+            "node": "Check if Scheduler Suggests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Scheduler Suggests": {
+      "main": [
+        [
+          {
+            "node": "Respond with Suggestions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Insurance Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Insurance Agent": {
+      "main": [
+        [
+          {
+            "node": "Check if Needs Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Needs Info": {
+      "main": [
+        [
+          {
+            "node": "Respond with Question",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Reminder Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Reminder Agent": {
+      "main": [
+        [
+          {
+            "node": "Compose Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Final Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1"
+} 
